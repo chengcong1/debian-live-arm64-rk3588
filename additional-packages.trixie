@@ -1,0 +1,105 @@
+# ---------------------------------------------------------------------------
+# Extra packages for the Debian trixie / KDE Plasma live ISO (Radxa Rock 5B)
+# One package per line, comments allowed. Installed in the chroot stage.
+# ---------------------------------------------------------------------------
+
+# --- live system base -------------------------------------------------------
+live-task-recommended
+user-setup
+systemd-timesyncd
+locales
+console-setup
+keyboard-configuration
+tzdata
+sudo
+openssh-server
+vim
+nano
+less
+man-db
+bash-completion
+curl
+wget
+git
+jq
+htop
+psmisc
+lsof
+rsync
+unzip
+
+# --- disks / filesystems / low level board tools ----------------------------
+parted
+gdisk
+fdisk
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+btrfs-progs
+f2fs-tools
+xfsprogs
+mmc-utils
+u-boot-tools
+device-tree-compiler
+ethtool
+i2c-tools
+rfkill
+iw
+wpasupplicant
+wireless-regdb
+network-manager
+net-tools
+pciutils
+usbutils
+hdparm
+smartmontools
+pv
+gparted
+
+# --- firmware ---------------------------------------------------------------
+# Armbian ships the rk3588 (VOP2/panthor) and RTL8852BE Wi-Fi/Bluetooth
+# firmware files that Debian's own firmware packages do not always carry.
+armbian-firmware
+# Debian-only alternative (comment armbian-firmware above to use it):
+# firmware-misc-nonfree
+# firmware-realtek
+
+# --- live installer ---------------------------------------------------------
+calamares-settings-debian
+grub-efi-arm64
+grub-efi-arm64-bin
+
+# --- KDE Plasma desktop (Plasma 6 from Debian trixie) -----------------------
+kde-plasma-desktop
+sddm
+plasma-nm
+plasma-pa
+kscreen
+bluedevil
+bluez
+dolphin
+konsole
+kate
+okular
+ark
+gwenview
+kcalc
+kde-config-gtk-style
+breeze-gtk-theme
+qt6-wayland
+pipewire-audio
+pipewire-pulse
+wireplumber
+xdg-user-dirs
+xdg-utils
+mesa-utils
+
+# --- fonts ------------------------------------------------------------------
+fonts-dejavu
+fonts-noto-core
+fonts-noto-cjk
+fonts-noto-color-emoji
+
+# --- browser ----------------------------------------------------------------
+firefox-esr

@@ -1,0 +1,94 @@
+#!/bin/sh
+# Runs inside the chroot (config/hooks/live/*.hook.chroot) while building the
+# Debian trixie / KDE live ISO for the Radxa Rock 5B.
+
+set -e
+
+# ---------------------------------------------------------------------------
+# Installer (Calamares)
+# ---------------------------------------------------------------------------
+# Debian's calamares-settings-debian is written for amd64: make the bootloader
+# module install grub-efi-arm64 on the target and enable the EFI fallback path
+# so the installed board still boots when the firmware entry is lost.
+if [ -f /usr/sbin/bootloader-config ]; then
+	sed -i "s|grub-efi-amd64|grub-efi-arm64|g" /usr/sbin/bootloader-config
+	echo "chroot \$CHROOT /usr/bin/ssh-keygen -A" >> /usr/sbin/bootloader-config
+fi
+
+if [ -f /etc/calamares/modules/bootloader.conf ]; then
+	sed -i "s|installEFIFallback: false|installEFIFallback: true|g" /etc/calamares/modules/bootloader.conf
+fi
+
+# live-boot >= 5 mounts the medium under /run/live/medium
+sed -i "s|/lib/live/mount/medium|/run/live/medium|g" /etc/calamares/modules/*.conf 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Services
+# ---------------------------------------------------------------------------
+systemctl enable sddm.service || true
+systemctl enable NetworkManager.service || true
+systemctl enable systemd-timesyncd.service || true
+systemctl set-default graphical.target || true
+
+# ---------------------------------------------------------------------------
+# Locales (English default, Chinese available)
+# ---------------------------------------------------------------------------
+if [ -f /etc/locale.gen ]; then
+	sed -i -e 's/^# *\(en_US.UTF-8\)/\1/' -e 's/^# *\(zh_CN.UTF-8\)/\1/' /etc/locale.gen
+	if command -v locale-gen > /dev/null 2>&1; then
+		locale-gen
+	fi
+fi
+
+# ---------------------------------------------------------------------------
+# /boot/dtb -> /boot/dtb-<version>-current-rockchip64
+# The GRUB snippets (binary_grub_cfg and /etc/grub.d/10_linux) look for the
+# device tree under <bootdir>/dtb/rockchip/, make sure the symlink exists.
+# ---------------------------------------------------------------------------
+if [ ! -e /boot/dtb ]; then
+	DTBDIR="$(ls -d /boot/dtb-* 2> /dev/null | head -n 1 || true)"
+	if [ -n "${DTBDIR}" ]; then
+		ln -s "$(basename "${DTBDIR}")" /boot/dtb
+	fi
+fi
+
+# ---------------------------------------------------------------------------
+# Rock 5B: give the HDMI/DP/analog sound cards human readable names
+# ---------------------------------------------------------------------------
+mkdir -p /etc/udev/rules.d
+cat > /etc/udev/rules.d/90-naming-audios.rules << 'EOF'
+SUBSYSTEM=="sound", ENV{ID_PATH}=="platform-hdmi0-sound", ENV{SOUND_DESCRIPTION}="HDMI0 Audio"
+SUBSYSTEM=="sound", ENV{ID_PATH}=="platform-hdmi1-sound", ENV{SOUND_DESCRIPTION}="HDMI1 Audio"
+SUBSYSTEM=="sound", ENV{ID_PATH}=="platform-hdmiin-sound", ENV{SOUND_DESCRIPTION}="HDMI-In Audio"
+SUBSYSTEM=="sound", ENV{ID_PATH}=="platform-dp0-sound", ENV{SOUND_DESCRIPTION}="DP0 Audio"
+SUBSYSTEM=="sound", ENV{ID_PATH}=="platform-es8316-sound", ENV{SOUND_DESCRIPTION}="ES8316 Audio"
+EOF
+
+# ---------------------------------------------------------------------------
+# Autologin the live user into Plasma (live session only)
+# This is a live-config component, it is executed on every live boot and lives
+# in the runtime overlay, so the installed system is never affected.
+# ---------------------------------------------------------------------------
+install -d /lib/live/config
+cat > /lib/live/config/1190-sddm-autologin << 'EOF'
+#!/bin/sh
+
+Config ()
+{
+	# the live user is created by live-config's user-setup component
+	LIVE_USER="${LIVE_USERNAME:-user}"
+	if ! getent passwd "${LIVE_USER}" > /dev/null 2>&1; then
+		LIVE_USER="$(awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }' /etc/passwd)"
+	fi
+	[ -n "${LIVE_USER}" ] || return 0
+
+	mkdir -p /etc/sddm.conf.d
+	cat > /etc/sddm.conf.d/10-live-autologin.conf << EOT
+[Autologin]
+User=${LIVE_USER}
+Session=plasma
+Relogin=false
+EOT
+}
+EOF
+chmod 0755 /lib/live/config/1190-sddm-autologin
