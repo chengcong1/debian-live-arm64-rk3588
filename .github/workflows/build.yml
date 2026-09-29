@@ -69,38 +69,68 @@ jobs:
           # grub-common) into the live chroot by itself.
           sudo apt -y install qemu-user-static debian-archive-keyring apt-utils squashfs-tools xorriso mtools dosfstools
           sudo lb build
-      - name: Split the iso into <2 GiB parts for the release
+      - name: Package the iso for the release
         shell: bash
         run: |
           set -euo pipefail
           cd iso-build
           shopt -s nullglob
+
           isos=( *.iso )
           if [ "${#isos[@]}" -eq 0 ]; then
             echo "::error::no .iso file found in iso-build/"
             exit 1
           fi
 
-          mkdir -p release-parts
+          out=release-parts
+          part_size=1800M                     # GitHub allows at most 2 GiB per asset
+          single_max=$((1900 * 1024 * 1024))  # below that the image is shipped as-is
+          mkdir -p "${out}"
+
           for iso in "${isos[@]}"; do
-            rm -f "release-parts/${iso}.part"*
-            # GitHub limits release assets to 2 GiB per file -> 1800 MiB parts
-            split -b 1800M -d -a 2 "${iso}" "release-parts/${iso}.part"
-            # checksum of the whole image (after reassembly) + of every part
-            sha256sum "${iso}" > "release-parts/${iso}.sha256"
-            ( cd release-parts && sha256sum "${iso}.part"* ) >> "release-parts/${iso}.sha256"
-            # free disk space: the parts are what we ship
-            rm -f "${iso}"
+            echo "::group::Packaging ${iso} ($(du -h -- "${iso}" | cut -f1))"
+            rm -f -- "${out}/${iso}" "${out}/${iso}".part[0-9][0-9]
+
+            if [ "$(stat -c%s -- "${iso}")" -le "${single_max}" ]; then
+              # small enough for a single asset
+              mv -- "${iso}" "${out}/${iso}"
+              ( cd "${out}" && sha256sum -- "${iso}" ) > "${out}/${iso}.sha256"
+              echo "shipped as one file"
+            else
+              split -b "${part_size}" -d -a 2 -- "${iso}" "${out}/${iso}.part"
+
+              # the parts must reassemble into the image bit for bit
+              image_sum=$(sha256sum -- "${iso}" | cut -d' ' -f1)
+              parts_sum=$(cat -- "${out}/${iso}".part[0-9][0-9] | sha256sum | cut -d' ' -f1)
+              if [ "${image_sum}" != "${parts_sum}" ]; then
+                echo "::error::parts of ${iso} do not reassemble into the original image"
+                exit 1
+              fi
+
+              # line 1 = reassembled image, then one line per uploaded part
+              {
+                echo "${image_sum}  ${iso}"
+                ( cd "${out}" && sha256sum -- "${iso}".part[0-9][0-9] )
+              } > "${out}/${iso}.sha256"
+
+              rm -f -- "${iso}"                # the parts are what we ship
+              parts=$(ls -1 -- "${out}/${iso}".part[0-9][0-9] | wc -l)
+              echo "split into ${parts} parts"
+            fi
+
+            echo "::endgroup::"
           done
 
-          # reassembly instructions shipped with the release
-          cat > release-parts/RESTORE.txt << 'EOF'
-          Rock 5B live ISO - uploaded in parts
-          ====================================
-          GitHub limits release assets to 2 GiB per file, so the image was
-          split into 1800 MiB chunks named <image>.iso.part00, .part01, ...
+          # shipped inside the release next to the assets
+          cat > "${out}/RESTORE.txt" << 'EOF'
+          Rock 5B live ISO release
+          ========================
+          GitHub allows at most 2 GiB per release asset. A bigger image is
+          uploaded as <image>.iso.part00, <image>.iso.part01, ... and an image
+          that fits is uploaded as plain <image>.iso.
+          If you only see a single .iso file, just use it.
 
-          Reassemble and verify (Linux / macOS / WSL):
+          Reassemble and verify the parts (Linux / macOS / WSL):
 
             cat <image>.iso.part* > <image>.iso
             sha256sum -c <image>.iso.sha256
@@ -109,17 +139,17 @@ jobs:
 
             copy /b <image>.iso.part00 + <image>.iso.part01 <image>.iso
 
-          The .sha256 file lists the checksum of the reassembled image and of
-          every single part:
+          <image>.iso.sha256 holds the checksum of every uploaded file and, for
+          split images, the checksum of the reassembled image on line 1:
 
             sha256sum -c <image>.iso.sha256
 
-          Then flash the image to a USB stick / SD card (or drop it on a
-          Ventoy stick) and boot the Rock 5B through UEFI.
+          Then flash the image to a USB stick / SD card (or drop it on a Ventoy
+          stick) and boot the Rock 5B through UEFI.
           EOF
 
-          ls -lh release-parts
-      - name: Upload iso parts
+          ls -lh -- "${out}"
+      - name: Upload iso assets
         uses: xresloader/upload-to-github-release@v1
         env:
             GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

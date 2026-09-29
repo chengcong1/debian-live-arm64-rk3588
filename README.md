@@ -160,9 +160,14 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
 
 ## 下载与合并分卷
 
-Release 里的镜像是以 **1800 MiB 分卷**上传的（GitHub 单个资产上限 2 GiB），文件名形如
-`debian-trixie-kde-rock5b-live-arm64.hybrid.iso.part00`、`.part01` …，同时附带
-`<iso>.sha256`（包含整镜像与每个分卷的校验值）和 `RESTORE.txt`：
+Release 里的镜像按大小自动选择发布形式（GitHub 单个资产上限 2 GiB）：
+
+* 镜像 **> 1900 MiB**：切成 **1800 MiB 分卷**上传，文件名形如
+  `….hybrid.iso.part00`、`.part01` …；
+* 镜像 **≤ 1900 MiB**：直接以单文件 `<iso>` 上传，无需合并。
+
+两种情况都会附带 `<iso>.sha256` 和 `RESTORE.txt`。分卷时 `<iso>.sha256` 的**第 1 行是合并后整镜像的
+校验值**，其后每行对应一个分卷（所以下载后可以先校验每个分卷是否完整，再合并校验整镜像）：
 
 ```sh
 cat <iso>.part* > <iso>
@@ -170,7 +175,8 @@ sha256sum -c <iso>.sha256      # 整镜像与各分卷都会校验
 ```
 
 Windows 可用 `copy /b <iso>.part00 + <iso>.part01 <iso>`（分卷多时用 `for %f in (...) do copy /b`），
-或直接用 7-Zip 的“合并文件”。各工作流也会在切分后删除原始 ISO 以节省 runner 磁盘。
+或直接用 7-Zip 的“合并文件”。工作流在切分后还会**重新拼回并比对校验值**，确认无误才删除原始 ISO
+（同时节省 runner 磁盘），因此上传的分卷一定是可复原的。
 
 ## 常见报错
 
