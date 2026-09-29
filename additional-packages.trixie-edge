@@ -1,7 +1,9 @@
 # ---------------------------------------------------------------------------
-# Packages for: Debian trixie + KDE Plasma 6 (full) + Armbian edge kernel
+# Packages for: Debian trixie + KDE Plasma 6 (full) + Armbian kernel
 # Variant WITHOUT the Armbian framework: no armbian-firmware, no armbian-bsp-*,
 # no armbian-config. Firmware is Debian's, the kernel is Armbian's.
+# Shared by build-edge.yml (edge / 7.x) and build-current.yml (current / 6.18 LTS),
+# the list is kernel independent.
 # ---------------------------------------------------------------------------
 
 # --- live system base -------------------------------------------------------

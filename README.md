@@ -13,15 +13,17 @@
 | 引导 | GRUB EFI（ISO 内 `grub-efi-arm64`）+ 设备树（DTB）自动加载 |
 | 安装器 | Calamares（`calamares-settings-debian`） |
 
-## 两个镜像变体（两个工作流）
+## 三个镜像变体（三个工作流）
 
 | 工作流 | 镜像 | 内核 | 固件 | 桌面 |
 | --- | --- | --- | --- | --- |
 | `.github/workflows/build.yml` | `lb-config-trixie.sh` | Armbian `current-rockchip64` = **6.18.x LTS** | `armbian-firmware`（含 Armbian 框架包） | KDE Plasma 6 |
 | `.github/workflows/build-edge.yml` | `lb-config-trixie-edge.sh` | Armbian `edge-rockchip64` = **7.x 主线**（当前 7.1.8，Armbian 已把 edge 指向 7.2，发布后自动变为 7.2.x） | 纯 Debian 固件（`firmware-realtek` / `firmware-misc-nonfree`） | KDE Plasma 6 完整版 + 中文输入法 + LibreOffice + Firefox |
+| `.github/workflows/build-current.yml` | `lb-config-trixie-current.sh` | Armbian `current-rockchip64` = **6.18.x LTS** | 纯 Debian 固件（同上） | 与变体2 相同（共用 `additional-packages.trixie-edge`） |
 
-第二个变体**不包含任何 Armbian 框架组件**（无 `armbian-firmware`、无 `armbian-bsp-cli-*`、无 `armbian-config`），
-Armbian 源仅用于提供内核（`linux-image/dtb/headers-edge-rockchip64`）。
+变体2 与变体3 **不包含任何 Armbian 框架组件**（无 `armbian-firmware`、无 `armbian-bsp-cli-*`、无 `armbian-config`），
+Armbian 源仅用于提供内核（`linux-image/dtb/headers-{edge,current}-rockchip64`），且只写入 chroot 阶段，
+打好的系统里 apt 源是纯 Debian。变体2/3 只差一个内核分支，用户空间完全一致。
 
 > 注意：Armbian 源里目前**没有 7.2.8**：`edge` 分支已发布的是 7.1.8（源码包 `linux-7.1.8`），
 > 7.2.0 目前只给 Qualcomm sm8550 构建过。因此这里用 `edge-rockchip64` 取“最新主线”，
@@ -43,8 +45,9 @@ Armbian 源仅用于提供内核（`linux-image/dtb/headers-edge-rockchip64`）�
 lb-config-trixie.sh                     # 变体1: 6.18 LTS 内核 + armbian-firmware
 additional-packages.trixie              # 变体1 的包列表
 lb-config-trixie-edge.sh                # 变体2: edge 7.x 内核 + 纯 Debian 固件（无 Armbian 框架）
-additional-packages.trixie-edge         # 变体2 的包列表（KDE 完整版 + fcitx5 + LibreOffice + Firefox）
-customize-chroot-trixie.hook.chroot     # 两个变体共用：Calamares、sddm 自动登录、locale、声卡命名、fcitx5
+lb-config-trixie-current.sh             # 变体3: current 6.18 LTS 内核 + 纯 Debian 固件（无 Armbian 框架）
+additional-packages.trixie-edge         # 变体2/3 共用包列表（KDE 完整版 + fcitx5 + LibreOffice + Firefox）
+customize-chroot-trixie.hook.chroot     # 三个变体共用：Calamares、sddm 自动登录、locale、声卡命名、fcitx5
 10_linux                                # 安装到目标系统的 /etc/grub.d/10_linux（含 DTB 逻辑）
 networkmanager.yaml                     # netplan: 使用 NetworkManager 渲染
 grub-dtb.patch                          # live-build: Live 菜单加载 DTB
@@ -52,6 +55,7 @@ grub-dtb.patch                          # live-build: Live 菜单加载 DTB
 remove-raspi-firmware.patch
 .github/workflows/build.yml             # CI（变体1）
 .github/workflows/build-edge.yml        # CI（变体2）
+.github/workflows/build-current.yml     # CI（变体3）
 ```
 
 ## 在本地构建

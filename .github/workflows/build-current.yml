@@ -1,10 +1,13 @@
-name: Build edge (Armbian 7.x kernel, no Armbian framework)
+name: Build current (Armbian 6.18 LTS kernel, no Armbian framework)
 
-# Second flavour of the Rock 5B live ISO:
-#   Debian trixie + KDE Plasma 6 (full) + Armbian *edge* kernel (7.x)
+# Third flavour of the Rock 5B live ISO:
+#   Debian trixie + KDE Plasma 6 (full) + Armbian *current* kernel (6.18.x LTS)
 #   without any Armbian framework package (no armbian-firmware / BSP / config),
 #   firmware and userspace are plain Debian.
-# See lb-config-trixie-edge.sh and additional-packages.trixie-edge.
+# Same userland as build-edge.yml, only the kernel branch differs:
+#   build-edge.yml    -> edge-rockchip64    (7.x, newest mainline)
+#   build-current.yml -> current-rockchip64 (6.18.x LTS)
+# See lb-config-trixie-current.sh and additional-packages.trixie-edge.
 on:
   workflow_dispatch:
 
@@ -23,8 +26,8 @@ jobs:
         id: release
         uses: softprops/action-gh-release@v1
         with:
-          # distinct tag prefix so the two workflows never race for one tag
-          tag_name: edge-${{ steps.time.outputs.time }}
+          # distinct tag prefix so the workflows never race for one tag
+          tag_name: current-${{ steps.time.outputs.time }}
           body_path: README.md
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
@@ -58,7 +61,8 @@ jobs:
         shell: bash
         run: |
           mkdir iso-build && cd iso-build
-          cp ../lb-config-trixie-edge.sh lb-config.sh
+          cp ../lb-config-trixie-current.sh lb-config.sh
+          # shared "no Armbian framework" package list (kernel independent)
           cp ../additional-packages.trixie-edge additional-packages
           cp ../networkmanager.yaml .
           # shared hook: no Armbian specific code in it, it only fixes the
