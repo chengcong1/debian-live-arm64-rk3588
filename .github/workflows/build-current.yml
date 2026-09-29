@@ -68,7 +68,7 @@ jobs:
           # shared hook: no Armbian specific code in it, it only fixes the
           # arm64 Calamares/bootloader paths, sddm autologin, locales, the
           # /boot/dtb symlink and (guarded) the fcitx5 input method
-          # cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
+          cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
           cp ../10_linux .
           chmod +x lb-config.sh
           ./lb-config.sh

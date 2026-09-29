@@ -94,30 +94,9 @@ EOF
 fi
 
 # ---------------------------------------------------------------------------
-# Autologin the live user into Plasma (live session only)
-# This is a live-config component, it is executed on every live boot and lives
-# in the runtime overlay, so the installed system is never affected.
+# Live session autologin is left to live-config's own 0085-sddm component,
+# which writes /etc/sddm.conf from LIVE_USERNAME at boot. Do not add a
+# competing /etc/sddm.conf.d/*.conf here: conf.d takes precedence over
+# /etc/sddm.conf and a wrong Session= silently breaks autologin.
 # ---------------------------------------------------------------------------
-install -d /lib/live/config
-cat > /lib/live/config/1190-sddm-autologin << 'EOF'
-#!/bin/sh
 
-Config ()
-{
-	# the live user is created by live-config's user-setup component
-	LIVE_USER="${LIVE_USERNAME:-user}"
-	if ! getent passwd "${LIVE_USER}" > /dev/null 2>&1; then
-		LIVE_USER="$(awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }' /etc/passwd)"
-	fi
-	[ -n "${LIVE_USER}" ] || return 0
-
-	mkdir -p /etc/sddm.conf.d
-	cat > /etc/sddm.conf.d/10-live-autologin.conf << EOT
-[Autologin]
-User=${LIVE_USER}
-Session=plasma
-Relogin=false
-EOT
-}
-EOF
-chmod 0755 /lib/live/config/1190-sddm-autologin

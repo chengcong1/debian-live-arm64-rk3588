@@ -47,7 +47,7 @@ additional-packages.trixie              # 变体1 的包列表
 lb-config-trixie-edge.sh                # 变体2: edge 7.x 内核 + 纯 Debian 固件（无 Armbian 框架）
 lb-config-trixie-current.sh             # 变体3: current 6.18 LTS 内核 + 纯 Debian 固件（无 Armbian 框架）
 additional-packages.trixie-edge         # 变体2/3 共用包列表（KDE 完整版 + fcitx5 + LibreOffice + Firefox）
-customize-chroot-trixie.hook.chroot     # 三个变体共用：Calamares、sddm 自动登录、locale、声卡命名、fcitx5
+customize-chroot-trixie.hook.chroot     # 三个变体共用：Calamares、locale、声卡命名、fcitx5
 10_linux                                # 安装到目标系统的 /etc/grub.d/10_linux（含 DTB 逻辑）
 networkmanager.yaml                     # netplan: 使用 NetworkManager 渲染
 grub-dtb.patch                          # live-build: Live 菜单加载 DTB
@@ -116,7 +116,7 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
 
 | 用户 | 密码 | 说明 |
 | --- | --- | --- |
-| `user` | `live` | Live 用户，会自动登录 Plasma（`live-config` 组件 `1190-sddm-autologin`） |
+| `user` | `live` | Live 用户，自动登录由 `live-config` 自带的 `0085-sddm` 组件处理（不额外定制） |
 | root | — | 通过 `sudo` 使用 |
 
 安装到磁盘时使用桌面上的 **Install System**（Calamares）。
@@ -154,8 +154,10 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
   可在 Calamares 安装界面选择中文，或在 Live 里执行 `localectl set-locale zh_CN.UTF-8`。
   变体2（`additional-packages.trixie-edge`）还装有 **fcitx5 + 拼音**：hook 会执行 `im-config -n fcitx5`、
   写入 `/etc/environment.d/90-fcitx5.conf` 与 `/etc/xdg/autostart/fcitx5.desktop`，进入桌面后用 `Ctrl+Space` 切换中英文。
-* **自动登录**：由 `/lib/live/config/1190-sddm-autologin` 在 Live 启动时写入
-  `/etc/sddm.conf.d/10-live-autologin.conf`，只影响 Live 会话，不会带入安装后的系统。
+* **自动登录**：沿用 `live-config` 自带的 `0085-sddm` 组件——它在 Live 启动时把 `[Autologin]`
+  写进 `/etc/sddm.conf`，只影响 Live 会话，不会带入安装后的系统。**不要**再往
+  `/etc/sddm.conf.d/` 里塞自己的配置：`conf.d/*.conf` 优先级高于 `/etc/sddm.conf`，
+  会覆盖掉它（`Session=` 名字不对时自动登录会静默失效，退化成登录界面）。
 * **音频设备名**：`90-naming-audios.rules` 给 HDMI0/HDMI1/HDMI-In/DP0/ES8316 起名。
 
 ## 下载与合并分卷
