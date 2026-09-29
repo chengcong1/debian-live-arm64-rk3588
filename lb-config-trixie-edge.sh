@@ -26,6 +26,9 @@
 # fail loudly instead of silently building an unusable repository
 set -e
 
+# NOTE: only ONE --bootappend-live is allowed. Passing it twice does not add
+# options, the second value overwrites the first - keep locale, splash and
+# console settings together on the single line below.
 LB_IMAGE_NAME="debian-trixie-kde-edge-rock5b-live" lb config \
 	--architecture arm64 \
 	--archive-areas 'contrib main non-free non-free-firmware' \
@@ -35,8 +38,7 @@ LB_IMAGE_NAME="debian-trixie-kde-edge-rock5b-live" lb config \
 	--distribution-chroot trixie \
 	--distribution-binary trixie \
 	--bootloaders grub-efi \
-	--compression xz \
-	--bootappend-live "boot=live components quiet splash console=ttyS2,1500000 console=tty0" \
+	--bootappend-live "boot=live components quiet splash locales=zh_CN.UTF-8 console=ttyS2,1500000 console=tty0" \
 	--keyring-packages "debian-archive-keyring ca-certificates fontconfig-config initramfs-tools" \
 	--linux-packages "linux-image linux-dtb linux-headers" \
 	--linux-flavours "edge-rockchip64" \

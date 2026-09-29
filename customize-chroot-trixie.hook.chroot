@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+
 # Runs inside the chroot (config/hooks/live/*.hook.chroot) while building the
 # Debian trixie / KDE live ISO for the Radxa Rock 5B.
 

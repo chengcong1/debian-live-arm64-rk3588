@@ -68,7 +68,7 @@ jobs:
           # shared hook: no Armbian specific code in it, it only fixes the
           # arm64 Calamares/bootloader paths, sddm autologin, locales, the
           # /boot/dtb symlink and (guarded) the fcitx5 input method
-          cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
+          # cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
           cp ../10_linux .
           chmod +x lb-config.sh
           ./lb-config.sh
@@ -137,24 +137,37 @@ jobs:
           cat > "${out}/RESTORE.txt" << 'EOF'
           Rock 5B live ISO release
           ========================
-          GitHub allows at most 2 GiB per release asset. A bigger image is
-          uploaded as <image>.iso.part00, <image>.iso.part01, ... and an image
-          that fits is uploaded as plain <image>.iso.
-          If you only see a single .iso file, just use it.
+          GitHub allows at most 2 GiB per release asset, so a big image is
+          uploaded as <image>.iso.part00, <image>.iso.part01, ... and a small
+          image as plain <image>.iso. If you see a single .iso file, use it.
 
-          Reassemble and verify the parts (Linux / macOS / WSL):
+          IMPORTANT
+            * download ALL files of ONE release - never mix files from two
+              releases, the asset names repeat on every rebuild!
+            * in <image>.iso.sha256 line 1 is the checksum of the ASSEMBLED
+              image, every following line belongs to one .partNN file, so a
+              single part will never match line 1.
+
+          1) check the single parts first, nothing has to be assembled:
+
+            sha256sum -c --ignore-missing <image>.iso.sha256
+
+          2) assemble and check the image (Linux / macOS / WSL):
 
             cat <image>.iso.part* > <image>.iso
             sha256sum -c <image>.iso.sha256
 
-          Windows (cmd.exe):
+          3) Windows: binary copy only, PowerShell cat/Get-Content or cmd
+             type will corrupt the data
 
-            copy /b <image>.iso.part00 + <image>.iso.part01 <image>.iso
-
-          <image>.iso.sha256 holds the checksum of every uploaded file and, for
-          split images, the checksum of the reassembled image on line 1:
-
-            sha256sum -c <image>.iso.sha256
+            cmd:  copy /b <image>.iso.part00 + <image>.iso.part01 <image>.iso
+            PowerShell:
+              $out = [IO.File]::Create("$PWD\<image>.iso")
+              Get-ChildItem *.part?? | Sort-Object Name | ForEach-Object {
+                $in = [IO.File]::OpenRead($_.FullName)
+                $in.CopyTo($out); $in.Dispose() }
+              $out.Dispose()
+              Get-FileHash .\<image>.iso -Algorithm SHA256   # must equal line 1
 
           Then flash the image to a USB stick / SD card (or drop it on a Ventoy
           stick) and boot the Rock 5B through UEFI.
