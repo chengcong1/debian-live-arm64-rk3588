@@ -23,6 +23,9 @@
 # picks up 7.2.x (and later) automatically as soon as Armbian publishes it;
 # whatever is newest in the repo is what gets installed.
 
+# fail loudly instead of silently building an unusable repository
+set -e
+
 LB_IMAGE_NAME="debian-trixie-kde-edge-rock5b-live" lb config \
 	--architecture arm64 \
 	--archive-areas 'contrib main non-free non-free-firmware' \
@@ -50,14 +53,25 @@ LB_IMAGE_NAME="debian-trixie-kde-edge-rock5b-live" lb config \
 	--mirror-binary-security "http://security.debian.org/debian-security/" \
 	--mirror-debian-installer "http://ftp.debian.org/debian/"
 
-# Armbian apt repository: used as kernel source only.
-#echo "deb https://apt.armbian.com trixie main" > config/archives/live.list.chroot
-#echo "deb https://apt.armbian.com trixie main" > config/archives/live.list.binary
+# Armbian apt repository -- REQUIRED: it is the source of the kernel packages.
+# If this block is removed/commented out the build dies later with
+#   E: Unable to locate package linux-image-edge-rockchip64
+# No Armbian framework package is requested anywhere, only
+# linux-image/linux-dtb/linux-headers-edge-rockchip64.
+# Chroot stage only: the shipped system keeps plain Debian sources.
+echo "deb https://apt.armbian.com trixie main" > config/archives/live.list.chroot
 
-# wget https://raw.githubusercontent.com/armbian/build/main/config/armbian.key
-# gpg --dearmor < armbian.key > armbian.gpg
-# cp armbian.gpg config/archives/armbian.key.binary
-# cp armbian.gpg config/archives/armbian.key.chroot
+# Signing key: primary = the Armbian build tree (this is what has always been
+# used here), fallback = the key served by the repository itself, so a blocked
+# raw.githubusercontent.com does not break the build.
+# `test -s` + set -e make a failed download abort the build right away.
+if ! wget -q -O armbian.key https://raw.githubusercontent.com/armbian/build/main/config/armbian.key; then
+	wget -q -O armbian.key https://apt.armbian.com/armbian.key
+fi
+test -s armbian.key
+gpg --batch --yes --dearmor < armbian.key > armbian.gpg
+test -s armbian.gpg
+cp armbian.gpg config/archives/armbian.key.chroot
 
 # Packages that are only needed inside the live system
 # (the workflow/local build copies additional-packages.trixie-edge to ./additional-packages)

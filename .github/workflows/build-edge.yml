@@ -7,8 +7,8 @@ name: Build edge (Armbian 7.x kernel, no Armbian framework)
 # See lb-config-trixie-edge.sh and additional-packages.trixie-edge.
 on:
   push:
-    branches:
-      - main
+    workflow_dispatch:
+
     paths:
       - 'lb-config-trixie-edge.sh'
       - 'additional-packages.trixie-edge'
@@ -79,6 +79,10 @@ jobs:
           cp ../10_linux .
           chmod +x lb-config.sh
           ./lb-config.sh
+          # guard: the Armbian repository is the only source of the kernel
+          # packages, abort right away if it is missing from the config
+          grep -q 'apt.armbian.com' config/archives/live.list.chroot
+          ls -l config/archives/
           # apt-utils provides apt-ftparchive (used by lb binary_package-lists on
           # the host); the other tools are host-side fallbacks -- live-build
           # installs the chroot-side ones (xorriso, mtools, squashfs-tools,
