@@ -13,6 +13,20 @@
 | 引导 | GRUB EFI（ISO 内 `grub-efi-arm64`）+ 设备树（DTB）自动加载 |
 | 安装器 | Calamares（`calamares-settings-debian`） |
 
+## 两个镜像变体（两个工作流）
+
+| 工作流 | 镜像 | 内核 | 固件 | 桌面 |
+| --- | --- | --- | --- | --- |
+| `.github/workflows/build.yml` | `lb-config-trixie.sh` | Armbian `current-rockchip64` = **6.18.x LTS** | `armbian-firmware`（含 Armbian 框架包） | KDE Plasma 6 |
+| `.github/workflows/build-edge.yml` | `lb-config-trixie-edge.sh` | Armbian `edge-rockchip64` = **7.x 主线**（当前 7.1.8，Armbian 已把 edge 指向 7.2，发布后自动变为 7.2.x） | 纯 Debian 固件（`firmware-realtek` / `firmware-misc-nonfree`） | KDE Plasma 6 完整版 + 中文输入法 + LibreOffice + Firefox |
+
+第二个变体**不包含任何 Armbian 框架组件**（无 `armbian-firmware`、无 `armbian-bsp-cli-*`、无 `armbian-config`），
+Armbian 源仅用于提供内核（`linux-image/dtb/headers-edge-rockchip64`）。
+
+> 注意：Armbian 源里目前**没有 7.2.8**：`edge` 分支已发布的是 7.1.8（源码包 `linux-7.1.8`），
+> 7.2.0 目前只给 Qualcomm sm8550 构建过。因此这里用 `edge-rockchip64` 取“最新主线”，
+> Armbian 每周重建，一旦发布 7.2.x 就会自动用上。若要立刻上 7.2+，只能自行编译内核或等上游发布。
+
 ## 构建流程
 
 1. 用 `live-build`（来自 salsa 的 master 分支）打上 3 个补丁：
@@ -26,15 +40,18 @@
 主要文件：
 
 ```
-lb-config-trixie.sh                     # live-build 配置（发行版、内核 flavour、软件源）
-additional-packages.trixie              # Live 系统内的软件包列表（KDE、固件、工具）
-customize-chroot-trixie.hook.chroot     # chroot hook：Calamares、sddm 自动登录、locale、声卡命名
+lb-config-trixie.sh                     # 变体1: 6.18 LTS 内核 + armbian-firmware
+additional-packages.trixie              # 变体1 的包列表
+lb-config-trixie-edge.sh                # 变体2: edge 7.x 内核 + 纯 Debian 固件（无 Armbian 框架）
+additional-packages.trixie-edge         # 变体2 的包列表（KDE 完整版 + fcitx5 + LibreOffice + Firefox）
+customize-chroot-trixie.hook.chroot     # 两个变体共用：Calamares、sddm 自动登录、locale、声卡命名、fcitx5
 10_linux                                # 安装到目标系统的 /etc/grub.d/10_linux（含 DTB 逻辑）
 networkmanager.yaml                     # netplan: 使用 NetworkManager 渲染
 grub-dtb.patch                          # live-build: Live 菜单加载 DTB
 0001-binary_linux-image-install-dtbs.patch
 remove-raspi-firmware.patch
-.github/workflows/build.yml             # CI（ubuntu-24.04-arm runner 上构建并上传 Release）
+.github/workflows/build.yml             # CI（变体1）
+.github/workflows/build-edge.yml        # CI（变体2）
 ```
 
 ## 在本地构建
@@ -61,6 +78,13 @@ cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
 cp ../networkmanager.yaml . && cp ../10_linux .
 chmod +x lb-config.sh && ./lb-config.sh
 sudo lb build
+```
+
+构建**变体2**（edge 7.x 内核 + 无 Armbian 框架）时把前两行换成：
+
+```sh
+cp ../lb-config-trixie-edge.sh lb-config.sh
+cp ../additional-packages.trixie-edge additional-packages
 ```
 
 ## 如何启动 Rock 5B
@@ -108,8 +132,12 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
 
 ## 定制要点
 
-* **桌面**：`additional-packages.trixie` 里的 `kde-plasma-desktop` 及配套包；
-  想换成 GNOME/XFCE 就替换这一段（`gnome` / `xfce4` + `gdm3` / `lightdm`）。
+* **桌面**：变体1 用 `additional-packages.trixie` 里的 `kde-plasma-desktop` 及配套包；
+  变体2 用 `additional-packages.trixie-edge`：`kde-plasma-desktop` + `kde-standard` + 常用应用
+  （Dolphin/Kate/Okular/Ark/Gwenview/KCalc/KDE Connect/Discover/print-manager）+ LibreOffice + GIMP + mpv + Firefox。
+  变体2 有意**不含** KMail/Akonadi 等 PIM 组件（体积大、首次启动慢）：需要时在桌面里
+  `sudo apt install kmail kontact` 即可，或直接把 `task-kde-desktop` 加进包列表。
+  想换成 GNOME/XFCE 就替换对应段落（`gnome` / `xfce4` + `gdm3` / `lightdm`）。
 * **固件**：只用 Armbian 的 `armbian-firmware`（已确认包含
   `arm/mali/arch10.8/mali_csffw.bin`、`rtw89/rtw8852b_fw-1.bin`、`rtl_bt/rtl8852bu_fw.bin`）。
   该包声明 `Provides/Conflicts: linux-firmware, firmware-realtek, firmware-ralink,
@@ -118,11 +146,27 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
   `firmware-*` 自动塞进 chroot，报 `held broken packages`。
   若要改用纯 Debian 固件：删掉 `armbian-firmware`，把该行改回 `true`，并在此列出
   `firmware-realtek` / `firmware-misc-nonfree`。
-* **中文支持**：`fonts-noto-cjk` 已包含；`zh_CN.UTF-8` locale 已在 chroot hook 中生成，
+* **中文支持**：`fonts-noto-cjk`/`fonts-noto-color-emoji` 已包含；`zh_CN.UTF-8` locale 已在 chroot hook 中生成，
   可在 Calamares 安装界面选择中文，或在 Live 里执行 `localectl set-locale zh_CN.UTF-8`。
+  变体2（`additional-packages.trixie-edge`）还装有 **fcitx5 + 拼音**：hook 会执行 `im-config -n fcitx5`、
+  写入 `/etc/environment.d/90-fcitx5.conf` 与 `/etc/xdg/autostart/fcitx5.desktop`，进入桌面后用 `Ctrl+Space` 切换中英文。
 * **自动登录**：由 `/lib/live/config/1190-sddm-autologin` 在 Live 启动时写入
   `/etc/sddm.conf.d/10-live-autologin.conf`，只影响 Live 会话，不会带入安装后的系统。
 * **音频设备名**：`90-naming-audios.rules` 给 HDMI0/HDMI1/HDMI-In/DP0/ES8316 起名。
+
+## 下载与合并分卷
+
+Release 里的镜像是以 **1800 MiB 分卷**上传的（GitHub 单个资产上限 2 GiB），文件名形如
+`debian-trixie-kde-rock5b-live-arm64.hybrid.iso.part00`、`.part01` …，同时附带
+`<iso>.sha256`（包含整镜像与每个分卷的校验值）和 `RESTORE.txt`：
+
+```sh
+cat <iso>.part* > <iso>
+sha256sum -c <iso>.sha256      # 整镜像与各分卷都会校验
+```
+
+Windows 可用 `copy /b <iso>.part00 + <iso>.part01 <iso>`（分卷多时用 `for %f in (...) do copy /b`），
+或直接用 7-Zip 的“合并文件”。各工作流也会在切分后删除原始 ISO 以节省 runner 磁盘。
 
 ## 常见报错
 

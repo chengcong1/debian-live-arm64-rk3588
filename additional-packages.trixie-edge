@@ -1,0 +1,155 @@
+# ---------------------------------------------------------------------------
+# Packages for: Debian trixie + KDE Plasma 6 (full) + Armbian edge kernel
+# Variant WITHOUT the Armbian framework: no armbian-firmware, no armbian-bsp-*,
+# no armbian-config. Firmware is Debian's, the kernel is Armbian's.
+# ---------------------------------------------------------------------------
+
+# --- live system base -------------------------------------------------------
+live-task-recommended
+user-setup
+systemd-timesyncd
+locales
+console-setup
+keyboard-configuration
+tzdata
+sudo
+openssh-server
+ca-certificates
+vim
+nano
+less
+man-db
+bash-completion
+curl
+wget
+git
+jq
+htop
+psmisc
+lsof
+rsync
+unzip
+
+# --- disks / filesystems / board tools --------------------------------------
+parted
+gdisk
+fdisk
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+btrfs-progs
+f2fs-tools
+xfsprogs
+mmc-utils
+u-boot-tools
+device-tree-compiler
+gparted
+ethtool
+i2c-tools
+rfkill
+iw
+wpasupplicant
+wireless-regdb
+network-manager
+net-tools
+pciutils
+usbutils
+hdparm
+smartmontools
+pv
+
+# --- firmware (Debian, no Armbian firmware) ---------------------------------
+#   firmware-misc-nonfree -> arm/mali/arch10.8/mali_csffw.bin   (panthor GPU)
+#   firmware-realtek      -> rtw89/rtw8852b_fw-1.bin            (RTL8852BE Wi-Fi)
+#                            rtl_bt/rtl8852bu_fw.bin            (Bluetooth)
+# live-build additionally installs every other firmware-* package that ships
+# /lib/firmware for arm64 (LB_FIRMWARE_CHROOT defaults to true), which is what
+# makes Wi-Fi/Bluetooth/GPU work out of the box on this image.
+firmware-realtek
+firmware-misc-nonfree
+
+# --- live installer ---------------------------------------------------------
+calamares-settings-debian
+grub-efi-arm64
+grub-efi-arm64-bin
+
+# --- KDE Plasma 6: desktop core ---------------------------------------------
+kde-plasma-desktop
+kde-standard
+plasma-workspace
+kwin-wayland
+kwin-x11
+xserver-xorg
+xwayland
+sddm
+kde-config-sddm
+systemsettings
+kde-cli-tools
+kio-extras
+powerdevil
+polkit-kde-agent-1
+udisks2
+upower
+plasma-nm
+plasma-pa
+kscreen
+bluedevil
+bluez
+plasma-widgets-addons
+plasma-runners-addons
+plasma-wallpapers-addons
+kde-inotify-survey
+
+# --- KDE Plasma 6: applications ---------------------------------------------
+dolphin
+konsole
+kate
+okular
+ark
+gwenview
+kcalc
+kde-spectacle
+kwalletmanager
+print-manager
+kdeconnect
+plasma-discover
+khelpcenter
+mpv
+gimp
+libreoffice-writer
+libreoffice-calc
+libreoffice-impress
+libreoffice-plasma
+libreoffice-kf6
+libreoffice-style-breeze
+firefox-esr
+
+# --- Wayland / audio / desktop integration ----------------------------------
+qt6-wayland
+pipewire-audio
+pipewire-pulse
+wireplumber
+libspa-0.2-bluetooth
+xdg-desktop-portal-kde
+kde-config-gtk-style
+breeze-gtk-theme
+gtk2-engines-murrine
+gvfs-backends
+xdg-user-dirs
+xdg-utils
+mesa-utils
+
+# --- Chinese input method ---------------------------------------------------
+fcitx5
+fcitx5-chinese-addons
+fcitx5-frontend-qt6
+fcitx5-frontend-gtk3
+fcitx5-config-qt
+im-config
+
+# --- fonts ------------------------------------------------------------------
+fonts-dejavu
+fonts-noto-core
+fonts-noto-cjk
+fonts-noto-color-emoji

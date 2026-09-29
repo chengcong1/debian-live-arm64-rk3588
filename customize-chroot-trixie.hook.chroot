@@ -65,6 +65,34 @@ SUBSYSTEM=="sound", ENV{ID_PATH}=="platform-es8316-sound", ENV{SOUND_DESCRIPTION
 EOF
 
 # ---------------------------------------------------------------------------
+# Chinese input method (only installed in the "full desktop" variant)
+# Plasma 6 on Wayland detects fcitx5 by itself; the environment file below
+# covers X11 / GTK / Qt applications.
+# ---------------------------------------------------------------------------
+if command -v fcitx5 > /dev/null 2>&1; then
+	if command -v im-config > /dev/null 2>&1; then
+		im-config -n fcitx5 || true
+	fi
+
+	mkdir -p /etc/environment.d
+	cat > /etc/environment.d/90-fcitx5.conf << 'EOF'
+XMODIFIERS=@im=fcitx
+GTK_IM_MODULE=fcitx
+EOF
+
+	mkdir -p /etc/xdg/autostart
+	cat > /etc/xdg/autostart/fcitx5.desktop << 'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Comment=Start the Fcitx 5 input method
+Exec=fcitx5 -d
+Icon=fcitx
+X-KDE-autostart-after=panel
+EOF
+fi
+
+# ---------------------------------------------------------------------------
 # Autologin the live user into Plasma (live session only)
 # This is a live-config component, it is executed on every live boot and lives
 # in the runtime overlay, so the installed system is never affected.

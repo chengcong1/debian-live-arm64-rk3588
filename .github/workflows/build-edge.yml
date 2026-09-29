@@ -1,5 +1,22 @@
-name: Build
+name: Build edge (Armbian 7.x kernel, no Armbian framework)
+
+# Second flavour of the Rock 5B live ISO:
+#   Debian trixie + KDE Plasma 6 (full) + Armbian *edge* kernel (7.x)
+#   without any Armbian framework package (no armbian-firmware / BSP / config),
+#   firmware and userspace are plain Debian.
+# See lb-config-trixie-edge.sh and additional-packages.trixie-edge.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'lb-config-trixie-edge.sh'
+      - 'additional-packages.trixie-edge'
+      - 'customize-chroot-trixie.hook.chroot'
+      - '10_linux'
+      - 'networkmanager.yaml'
+      - '*.patch'
+      - '.github/workflows/build-edge.yml'
   workflow_dispatch:
 
 jobs:
@@ -7,7 +24,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Get time
         id: time
         uses: nanzm/get-time-action@v1.1
@@ -17,7 +34,8 @@ jobs:
         id: release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.time.outputs.time }}
+          # distinct tag prefix so the two workflows never race for one tag
+          tag_name: edge-${{ steps.time.outputs.time }}
           body_path: README.md
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
@@ -26,11 +44,6 @@ jobs:
   build:
     runs-on: ubuntu-24.04-arm
     needs: prepare_release
-    strategy:
-      matrix:
-        # trixie = Armbian current kernel (6.18.x) + Debian 13 + KDE Plasma
-        # add bookworm back here if you also want the old Debian 12 image
-        CODENAME: [trixie]
     steps:
       - name: Install deb deps
         uses: awalsh128/cache-apt-pkgs-action@latest
@@ -56,10 +69,13 @@ jobs:
         shell: bash
         run: |
           mkdir iso-build && cd iso-build
-          cp ../lb-config-${{ matrix.CODENAME }}.sh lb-config.sh
-          cp ../additional-packages.${{ matrix.CODENAME }} additional-packages
+          cp ../lb-config-trixie-edge.sh lb-config.sh
+          cp ../additional-packages.trixie-edge additional-packages
           cp ../networkmanager.yaml .
-          cp ../customize-chroot-${{ matrix.CODENAME }}.hook.chroot customize-chroot.hook.chroot
+          # shared hook: no Armbian specific code in it, it only fixes the
+          # arm64 Calamares/bootloader paths, sddm autologin, locales, the
+          # /boot/dtb symlink and (guarded) the fcitx5 input method
+          cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
           cp ../10_linux .
           chmod +x lb-config.sh
           ./lb-config.sh
