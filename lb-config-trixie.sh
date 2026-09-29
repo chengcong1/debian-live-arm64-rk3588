@@ -7,6 +7,14 @@
 #     ships panthor and trixie ships a matching Mesa)
 #   * GRUB loads the board device tree (see grub-dtb.patch / 10_linux),
 #     so the ISO boots on a Rock 5B running UEFI firmware
+#   * firmware comes exclusively from armbian-firmware. LB_FIRMWARE_CHROOT
+#     defaults to 'true', which makes live-build add *every* Debian firmware-*
+#     package found in Contents-*.gz to the chroot; armbian-firmware declares
+#     "Provides/Conflicts: linux-firmware, firmware-brcm80211, firmware-ralink,
+#     firmware-samsung, firmware-realtek", so that combination is unsatisfiable
+#     ("held broken packages"). Hence --firmware-chroot false below. If you
+#     prefer Debian's own firmware packages, drop armbian-firmware from
+#     additional-packages.trixie and set this back to true.
 
 LB_IMAGE_NAME="debian-trixie-kde-rock5b-live" lb config \
 	--architecture arm64 \
@@ -18,6 +26,7 @@ LB_IMAGE_NAME="debian-trixie-kde-rock5b-live" lb config \
 	--distribution-binary trixie \
 	--bootloaders grub-efi \
 	--compression xz \
+	--firmware-chroot false \
 	--bootappend-live "boot=live components quiet splash console=ttyS2,1500000 console=tty0" \
 	--keyring-packages "debian-archive-keyring ca-certificates fontconfig-config initramfs-tools" \
 	--linux-packages "linux-image linux-dtb linux-headers" \

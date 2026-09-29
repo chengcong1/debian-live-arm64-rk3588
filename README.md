@@ -110,13 +110,27 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
 
 * **桌面**：`additional-packages.trixie` 里的 `kde-plasma-desktop` 及配套包；
   想换成 GNOME/XFCE 就替换这一段（`gnome` / `xfce4` + `gdm3` / `lightdm`）。
-* **固件**：默认用 Armbian 的 `armbian-firmware`（含 RTL8852BE Wi-Fi/蓝牙及 rk3588 相关文件）；
-  如需纯 Debian 固件，注释掉它并启用 `firmware-misc-nonfree` / `firmware-realtek`。
+* **固件**：只用 Armbian 的 `armbian-firmware`（已确认包含
+  `arm/mali/arch10.8/mali_csffw.bin`、`rtw89/rtw8852b_fw-1.bin`、`rtl_bt/rtl8852bu_fw.bin`）。
+  该包声明 `Provides/Conflicts: linux-firmware, firmware-realtek, firmware-ralink,
+  firmware-samsung, firmware-brcm80211`，因此 `lb-config-trixie.sh` 里必须设
+  `--firmware-chroot false`；否则 live-build（`LB_FIRMWARE_CHROOT` 默认 `true`）会把 Debian 所有
+  `firmware-*` 自动塞进 chroot，报 `held broken packages`。
+  若要改用纯 Debian 固件：删掉 `armbian-firmware`，把该行改回 `true`，并在此列出
+  `firmware-realtek` / `firmware-misc-nonfree`。
 * **中文支持**：`fonts-noto-cjk` 已包含；`zh_CN.UTF-8` locale 已在 chroot hook 中生成，
   可在 Calamares 安装界面选择中文，或在 Live 里执行 `localectl set-locale zh_CN.UTF-8`。
 * **自动登录**：由 `/lib/live/config/1190-sddm-autologin` 在 Live 启动时写入
   `/etc/sddm.conf.d/10-live-autologin.conf`，只影响 Live 会话，不会带入安装后的系统。
 * **音频设备名**：`90-naming-audios.rules` 给 HDMI0/HDMI1/HDMI-In/DP0/ES8316 起名。
+
+## 常见报错
+
+* `armbian-firmware : Conflicts: firmware-realtek ...` / `E: held broken packages`
+  —— `--firmware-chroot` 没关。live-build 默认会自动安装 Debian 的全部 `firmware-*`，
+  与 `armbian-firmware` 冲突，解决方式见上面「定制要点 / 固件」。
+* `patch does not apply` —— live-build master 上游改动，重新生成
+  `grub-dtb.patch` / `0001-binary_linux-image-install-dtbs.patch` / `remove-raspi-firmware.patch` 的上下文。
 
 ## 已知限制
 

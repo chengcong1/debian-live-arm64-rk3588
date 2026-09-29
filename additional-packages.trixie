@@ -58,12 +58,17 @@ pv
 gparted
 
 # --- firmware ---------------------------------------------------------------
-# Armbian ships the rk3588 (VOP2/panthor) and RTL8852BE Wi-Fi/Bluetooth
-# firmware files that Debian's own firmware packages do not always carry.
+# armbian-firmware contains everything the Rock 5B needs (verified contents):
+#   lib/firmware/arm/mali/arch10.8/mali_csffw.bin  (panthor GPU firmware)
+#   lib/firmware/rtw89/rtw8852b_fw-1.bin           (RTL8852BE Wi-Fi)
+#   lib/firmware/rtl_bt/rtl8852bu_fw.bin           (Bluetooth)
+# It Provides/Conflicts with linux-firmware, firmware-realtek, firmware-ralink,
+# firmware-samsung and firmware-brcm80211, so lb-config-trixie.sh disables
+# live-build's automatic firmware selection (--firmware-chroot false).
+# To use Debian firmware instead: remove armbian-firmware here, then re-enable
+# --firmware-chroot in lb-config-trixie.sh and list firmware-realtek /
+# firmware-misc-nonfree here.
 armbian-firmware
-# Debian-only alternative (comment armbian-firmware above to use it):
-# firmware-misc-nonfree
-# firmware-realtek
 
 # --- live installer ---------------------------------------------------------
 calamares-settings-debian

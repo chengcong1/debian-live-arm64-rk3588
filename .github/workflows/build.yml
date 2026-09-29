@@ -63,7 +63,11 @@ jobs:
           cp ../10_linux .
           chmod +x lb-config.sh
           ./lb-config.sh
-          sudo apt -y install qemu-user-static debian-archive-keyring
+          # apt-utils provides apt-ftparchive (used by lb binary_package-lists on
+          # the host); the other tools are host-side fallbacks -- live-build
+          # installs the chroot-side ones (xorriso, mtools, squashfs-tools,
+          # grub-common) into the live chroot by itself.
+          sudo apt -y install qemu-user-static debian-archive-keyring apt-utils squashfs-tools xorriso mtools dosfstools
           sudo lb build
       - name: Upload iso
         uses: xresloader/upload-to-github-release@v1
