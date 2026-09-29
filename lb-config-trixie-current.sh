@@ -34,7 +34,6 @@ LB_IMAGE_NAME="debian-trixie-kde-current-rock5b-live" lb config \
 	--distribution-chroot trixie \
 	--distribution-binary trixie \
 	--bootloaders grub-efi \
-	--compression xz \
 	--bootappend-live "boot=live components quiet splash console=ttyS2,1500000 console=tty0" \
 	--keyring-packages "debian-archive-keyring ca-certificates fontconfig-config initramfs-tools" \
 	--linux-packages "linux-image linux-dtb linux-headers" \
