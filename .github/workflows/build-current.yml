@@ -66,15 +66,17 @@ jobs:
           cp ../additional-packages.trixie-edge additional-packages
           cp ../networkmanager.yaml .
           # shared hook: no Armbian specific code in it, it only fixes the
-          # arm64 Calamares/bootloader paths, sddm autologin, locales, the
-          # /boot/dtb symlink and (guarded) the fcitx5 input method
+          # arm64 Calamares/bootloader paths, locales, the /boot/dtb symlink
+          # and (guarded) the fcitx5 input method
           cp ../customize-chroot-trixie.hook.chroot customize-chroot.hook.chroot
           cp ../10_linux .
           chmod +x lb-config.sh
           ./lb-config.sh
           # guard: the Armbian repository is the only source of the kernel
-          # packages, abort right away if it is missing from the config
+          # packages. `.list.chroot` feeds the build, `.list.binary` is the
+          # copy that ends up inside the ISO -- abort if either one is missing
           grep -q 'apt.armbian.com' config/archives/live.list.chroot
+          grep -q 'apt.armbian.com' config/archives/live.list.binary
           ls -l config/archives/
           # apt-utils provides apt-ftparchive (used by lb binary_package-lists on
           # the host); the other tools are host-side fallbacks -- live-build

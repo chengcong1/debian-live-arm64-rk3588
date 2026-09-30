@@ -22,8 +22,12 @@
 | `.github/workflows/build-current.yml` | `lb-config-trixie-current.sh` | Armbian `current-rockchip64` = **6.18.x LTS** | 纯 Debian 固件（同上） | 与变体2 相同（共用 `additional-packages.trixie-edge`） |
 
 变体2 与变体3 **不包含任何 Armbian 框架组件**（无 `armbian-firmware`、无 `armbian-bsp-cli-*`、无 `armbian-config`），
-Armbian 源仅用于提供内核（`linux-image/dtb/headers-{edge,current}-rockchip64`），且只写入 chroot 阶段，
-打好的系统里 apt 源是纯 Debian。变体2/3 只差一个内核分支，用户空间完全一致。
+Armbian 源仅用于提供内核（`linux-image/dtb/headers-{edge,current}-rockchip64`）。该源按 live-build 的约定写两份：
+`config/archives/live.list.chroot`（只在构建期用，chroot 阶段结束时会被 `lb chroot_archives chroot remove` 删掉）、
+`config/archives/live.list.binary`（**随镜像发布**，在 ISO 里是 `/etc/apt/sources.list.d/live.list`，
+签名密钥为 `/etc/apt/trusted.gpg.d/armbian.key.binary.gpg`）——所以 Live 系统、以及从它装到硬盘的系统
+都能直接 `sudo apt update && sudo apt install linux-image-{edge,current}-rockchip64` 升级内核，不用手改源。
+变体2/3 只差一个内核分支，用户空间完全一致。
 
 > 注意：Armbian 源里目前**没有 7.2.8**：`edge` 分支已发布的是 7.1.8（源码包 `linux-7.1.8`），
 > 7.2.0 目前只给 Qualcomm sm8550 构建过。因此这里用 `edge-rockchip64` 取“最新主线”，

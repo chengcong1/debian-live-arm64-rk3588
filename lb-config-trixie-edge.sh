@@ -60,8 +60,21 @@ LB_IMAGE_NAME="debian-trixie-kde-edge-rock5b-live" lb config \
 #   E: Unable to locate package linux-image-edge-rockchip64
 # No Armbian framework package is requested anywhere, only
 # linux-image/linux-dtb/linux-headers-edge-rockchip64.
-# Chroot stage only: the shipped system keeps plain Debian sources.
+#
+# live-build treats the suffixes differently, so both copies are written on purpose:
+#   live.list.chroot / armbian.key.chroot -> installed while the chroot is
+#     built and REMOVED again at the end of the chroot stage
+#     (`lb chroot_archives chroot remove`, see scripts/build/chroot), so this
+#     one only feeds the package installation itself.
+#   live.list.binary / armbian.key.binary -> installed by the BINARY stage
+#     (`lb chroot_archives binary install`), so this is the copy that ends up
+#     INSIDE THE ISO as /etc/apt/sources.list.d/live.list and
+#     /etc/apt/trusted.gpg.d/armbian.key.binary.gpg (apt only looks at the
+#     .gpg suffix, the extra .binary in the name is harmless). The live system
+#     and any system installed from it can therefore install/upgrade the
+#     Armbian kernel without editing apt sources by hand.
 echo "deb https://apt.armbian.com trixie main" > config/archives/live.list.chroot
+cp config/archives/live.list.chroot config/archives/live.list.binary
 
 # Signing key: primary = the Armbian build tree (this is what has always been
 # used here), fallback = the key served by the repository itself, so a blocked
@@ -74,6 +87,8 @@ test -s armbian.key
 gpg --batch --yes --dearmor < armbian.key > armbian.gpg
 test -s armbian.gpg
 cp armbian.gpg config/archives/armbian.key.chroot
+# second copy -> this one ships inside the ISO (see the note above)
+cp armbian.gpg config/archives/armbian.key.binary
 
 # Packages that are only needed inside the live system
 # (the workflow/local build copies additional-packages.trixie-edge to ./additional-packages)
