@@ -11,20 +11,29 @@ name: Build current (Armbian 6.18 LTS kernel, no Armbian framework)
 on:
   workflow_dispatch:
 
+# the workflow creates a release and uploads assets with GITHUB_TOKEN; without
+# this block a repository with the (new) default read-only token fails with 403
+permissions:
+  contents: write
+
+# serialize runs so two dispatches can never race for the same tag
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   prepare_release:
     runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Get time
         id: time
-        uses: nanzm/get-time-action@v1.1
-        with:
-          format: 'YYYYMMDD-HHmm'
+        shell: bash
+        run: echo "time=$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_OUTPUT"
       - name: Create empty release
         id: release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           # distinct tag prefix so the workflows never race for one tag
           tag_name: current-${{ steps.time.outputs.time }}
@@ -33,6 +42,7 @@ jobs:
           draft: false
     outputs:
       release_id: ${{ steps.release.outputs.id }}
+      tag_name: current-${{ steps.time.outputs.time }}
   build:
     runs-on: ubuntu-24.04-arm
     needs: prepare_release
@@ -84,6 +94,15 @@ jobs:
           # grub-common) into the live chroot by itself.
           sudo apt -y install qemu-user-static debian-archive-keyring apt-utils squashfs-tools xorriso mtools dosfstools
           sudo lb build
+          # Armbian "current" must still be the 6.18 LTS branch -- fail loudly
+          # instead of silently shipping an image with a different kernel
+          kernel=$(ls -1 chroot/boot/vmlinuz-6.18* 2> /dev/null | head -n 1 || true)
+          if [ -z "${kernel}" ]; then
+            echo "::error::no 6.18 kernel in the live chroot (Armbian current moved?)"
+            ls -l chroot/boot/ || true
+            exit 1
+          fi
+          echo "kernel: ${kernel}"
       - name: Package the iso for the release
         shell: bash
         run: |
@@ -177,18 +196,13 @@ jobs:
 
           ls -lh -- "${out}"
       - name: Upload iso assets
-        uses: xresloader/upload-to-github-release@v1
         env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ needs.prepare_release.outputs.release_id }}
-          file: "iso-build/release-parts/*"
-          draft: false
-          overwrite: true
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare_release.outputs.tag_name }}
+        run: gh release upload "$TAG" iso-build/release-parts/* --clobber
       - name: Rollback release
         if: failure()
-        uses: author/action-rollback@stable
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ needs.prepare_release.outputs.release_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare_release.outputs.tag_name }}
+        run: gh release delete "$TAG" --yes --cleanup-tag

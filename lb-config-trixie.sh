@@ -16,6 +16,9 @@
 #     prefer Debian's own firmware packages, drop armbian-firmware from
 #     additional-packages.trixie and set this back to true.
 
+# fail loudly instead of silently building an unusable repository
+set -e
+
 LB_IMAGE_NAME="debian-trixie-kde-rock5b-live" lb config \
 	--architecture arm64 \
 	--archive-areas 'contrib main non-free non-free-firmware' \
@@ -46,13 +49,29 @@ LB_IMAGE_NAME="debian-trixie-kde-rock5b-live" lb config \
 
 # Armbian repository (trixie). "current" is the 6.18 LTS branch for rk3588,
 # use 7.x with edge-rockchip64 or the Rockchip BSP 6.1 with vendor-rk35xx.
+#
+# live-build treats the suffixes differently, so both copies are written on purpose:
+#   live.list.chroot / armbian.key.chroot -> only feeds the chroot stage
+#     (`lb chroot_archives chroot remove` drops it again at the end)
+#   live.list.binary / armbian.key.binary -> installed by the binary stage, so
+#     this is the copy that ends up INSIDE the ISO; the live system (and an
+#     installed system) can upgrade linux-image-current-rockchip64 right away.
 echo "deb https://apt.armbian.com trixie main trixie-utils trixie-desktop" > config/archives/live.list.chroot
-echo "deb https://apt.armbian.com trixie main trixie-utils trixie-desktop" > config/archives/live.list.binary
+cp config/archives/live.list.chroot config/archives/live.list.binary
 
-wget https://raw.githubusercontent.com/armbian/build/main/config/armbian.key
-gpg --dearmor < armbian.key > armbian.gpg
-cp armbian.gpg config/archives/armbian.key.binary
+# Signing key: primary = the Armbian build tree, fallback = the key served by
+# the repository itself, so a blocked raw.githubusercontent.com does not break
+# the build. `test -s` + set -e abort the build right away instead of dying
+# 40 minutes later in `apt update` with NO_PUBKEY.
+if ! wget -q -O armbian.key https://raw.githubusercontent.com/armbian/build/main/config/armbian.key; then
+	wget -q -O armbian.key https://apt.armbian.com/armbian.key
+fi
+test -s armbian.key
+gpg --batch --yes --dearmor < armbian.key > armbian.gpg
+test -s armbian.gpg
 cp armbian.gpg config/archives/armbian.key.chroot
+# second copy -> this one ships inside the ISO (see the note above)
+cp armbian.gpg config/archives/armbian.key.binary
 
 # Packages that are only needed inside the live system
 cp additional-packages config/package-lists/additional-packages.list.chroot
