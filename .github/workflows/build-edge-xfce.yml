@@ -1,0 +1,221 @@
+name: Build edge-xfce (Armbian 7.x kernel, Xfce, no Armbian framework)
+
+# Fourth flavour of the Rock 5B live ISO:
+#   Debian trixie + Xfce 4.20 (lightdm) + Armbian *edge* kernel (7.x)
+#   without any Armbian framework package (no armbian-firmware / BSP / config),
+#   firmware and userspace are plain Debian.
+# Same kernel as build-edge.yml, only the desktop differs:
+#   build-edge.yml       -> edge-rockchip64 + KDE Plasma 6 (sddm, Wayland)
+#   build-edge-xfce.yml  -> edge-rockchip64 + Xfce 4.20 (lightdm, X11)
+# See lb-config-trixie-edge-xfce.sh and additional-packages.trixie-edge-xfce.
+on:
+  workflow_dispatch:
+
+# the workflow creates a release and uploads assets with GITHUB_TOKEN; without
+# this block a repository with the (new) default read-only token fails with 403
+permissions:
+  contents: write
+
+# serialize runs so two dispatches can never race for the same tag
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prepare_release:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Get time
+        id: time
+        shell: bash
+        run: echo "time=$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_OUTPUT"
+      - name: Create empty release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          # distinct tag prefix so the workflows never race for one tag
+          tag_name: edge-xfce-${{ steps.time.outputs.time }}
+          body_path: README.md
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+    outputs:
+      release_id: ${{ steps.release.outputs.id }}
+      tag_name: edge-xfce-${{ steps.time.outputs.time }}
+  build:
+    runs-on: ubuntu-24.04-arm
+    needs: prepare_release
+    steps:
+      - name: Install deb deps
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: devscripts build-essential debhelper po4a gettext debootstrap libnss-mymachines live-boot-doc live-config-doc live-manual-html systemd-container qemu-user-static debian-archive-keyring
+          version: 1.0
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Build live-build
+        shell: bash
+        run: |
+          sudo apt update
+          mkdir live-build && cd live-build
+          git clone https://salsa.debian.org/live-team/live-build.git -b master --depth=1
+          cd live-build
+          sudo apt -y install debhelper po4a gettext devscripts build-essential
+          patch -p1 < ../../0001-binary_linux-image-install-dtbs.patch
+          patch -p1 < ../../grub-dtb.patch
+          patch -p1 < ../../remove-raspi-firmware.patch
+          dpkg-buildpackage -us -uc
+          sudo apt -y install ../live-build_*_all.deb
+      - name: Build live iso
+        shell: bash
+        run: |
+          mkdir iso-build && cd iso-build
+          cp ../lb-config-trixie-edge-xfce.sh lb-config.sh
+          # Xfce package list (edge kernel, no Armbian framework)
+          cp ../additional-packages.trixie-edge-xfce additional-packages
+          cp ../networkmanager.yaml .
+          # Xfce hook: arm64 Calamares/bootloader paths, locales, the
+          # /boot/dtb symlink, sound card names and fcitx5 for an X11 session
+          cp ../customize-chroot-trixie-xfce.hook.chroot customize-chroot.hook.chroot
+          cp ../10_linux .
+          chmod +x lb-config.sh
+          ./lb-config.sh
+          # guard: the Armbian repository is the only source of the kernel
+          # packages. `.list.chroot` feeds the build, `.list.binary` is the
+          # copy that ends up inside the ISO -- abort if either one is missing
+          grep -q 'apt.armbian.com' config/archives/live.list.chroot
+          grep -q 'apt.armbian.com' config/archives/live.list.binary
+          ls -l config/archives/
+          # apt-utils provides apt-ftparchive (used by lb binary_package-lists on
+          # the host); the other tools are host-side fallbacks -- live-build
+          # installs the chroot-side ones (xorriso, mtools, squashfs-tools,
+          # grub-common) into the live chroot by itself.
+          sudo apt -y install qemu-user-static debian-archive-keyring apt-utils squashfs-tools xorriso mtools dosfstools
+          sudo lb build
+          # Armbian "edge" must still be an installed kernel -- fail loudly
+          # instead of silently shipping an image without one
+          kernel=$(ls -1 chroot/boot/vmlinuz-* 2> /dev/null | head -n 1 || true)
+          if [ -z "${kernel}" ]; then
+            echo "::error::no kernel in the live chroot (Armbian edge source broken?)"
+            ls -l chroot/boot/ || true
+            exit 1
+          fi
+          echo "kernel: ${kernel}"
+          # the Xfce hook creates this symlink, grub-dtb.patch depends on it
+          if [ ! -e chroot/boot/dtb ]; then
+            echo "::error::chroot/boot/dtb symlink is missing (chroot hook did not run?)"
+            ls -l chroot/boot/ || true
+            exit 1
+          fi
+          echo "dtb: $(readlink chroot/boot/dtb)"
+          # make sure the desktop really landed instead of an empty X session
+          for f in usr/bin/xfce4-session usr/sbin/lightdm; do
+            if [ ! -e "chroot/${f}" ]; then
+              echo "::error::chroot/${f} is missing (Xfce desktop not installed?)"
+              exit 1
+            fi
+          done
+      - name: Package the iso for the release
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd iso-build
+          shopt -s nullglob
+
+          isos=( *.iso )
+          if [ "${#isos[@]}" -eq 0 ]; then
+            echo "::error::no .iso file found in iso-build/"
+            exit 1
+          fi
+
+          out=release-parts
+          part_size=1800M                     # GitHub allows at most 2 GiB per asset
+          single_max=$((1900 * 1024 * 1024))  # below that the image is shipped as-is
+          mkdir -p "${out}"
+
+          for iso in "${isos[@]}"; do
+            echo "::group::Packaging ${iso} ($(du -h -- "${iso}" | cut -f1))"
+            rm -f -- "${out}/${iso}" "${out}/${iso}".part[0-9][0-9]
+
+            if [ "$(stat -c%s -- "${iso}")" -le "${single_max}" ]; then
+              # small enough for a single asset
+              mv -- "${iso}" "${out}/${iso}"
+              ( cd "${out}" && sha256sum -- "${iso}" ) > "${out}/${iso}.sha256"
+              echo "shipped as one file"
+            else
+              split -b "${part_size}" -d -a 2 -- "${iso}" "${out}/${iso}.part"
+
+              # the parts must reassemble into the image bit for bit
+              image_sum=$(sha256sum -- "${iso}" | cut -d' ' -f1)
+              parts_sum=$(cat -- "${out}/${iso}".part[0-9][0-9] | sha256sum | cut -d' ' -f1)
+              if [ "${image_sum}" != "${parts_sum}" ]; then
+                echo "::error::parts of ${iso} do not reassemble into the original image"
+                exit 1
+              fi
+
+              # line 1 = reassembled image, then one line per uploaded part
+              {
+                echo "${image_sum}  ${iso}"
+                ( cd "${out}" && sha256sum -- "${iso}".part[0-9][0-9] )
+              } > "${out}/${iso}.sha256"
+
+              rm -f -- "${iso}"                # the parts are what we ship
+              parts=$(ls -1 -- "${out}/${iso}".part[0-9][0-9] | wc -l)
+              echo "split into ${parts} parts"
+            fi
+
+            echo "::endgroup::"
+          done
+          # shipped inside the release next to the assets
+          cat > "${out}/RESTORE.txt" << 'EOF'
+          Rock 5B live ISO release (Debian trixie + Xfce, Armbian edge kernel)
+          ===================================================================
+          GitHub allows at most 2 GiB per release asset, so a big image is
+          uploaded as <image>.iso.part00, <image>.iso.part01, ... and a small
+          image as plain <image>.iso. If you see a single .iso file, use it.
+
+          IMPORTANT
+            * download ALL files of ONE release - never mix files from two
+              releases, the asset names repeat on every rebuild!
+            * in <image>.iso.sha256 line 1 is the checksum of the ASSEMBLED
+              image, every following line belongs to one .partNN file, so a
+              single part will never match line 1.
+
+          1) check the single parts first, nothing has to be assembled:
+
+            sha256sum -c --ignore-missing <image>.iso.sha256
+
+          2) assemble and check the image (Linux / macOS / WSL):
+
+            cat <image>.iso.part* > <image>.iso
+            sha256sum -c <image>.iso.sha256
+
+          3) Windows: binary copy only, PowerShell cat/Get-Content or cmd
+             type will corrupt the data
+
+            cmd:  copy /b <image>.iso.part00 + <image>.iso.part01 <image>.iso
+            PowerShell:
+              $out = [IO.File]::Create("$PWD\<image>.iso")
+              Get-ChildItem *.part?? | Sort-Object Name | ForEach-Object {
+                $in = [IO.File]::OpenRead($_.FullName)
+                $in.CopyTo($out); $in.Dispose() }
+              $out.Dispose()
+              Get-FileHash .\<image>.iso -Algorithm SHA256   # must equal line 1
+
+          Then flash the image to a USB stick / SD card (or drop it on a Ventoy
+          stick) and boot the Rock 5B through UEFI.
+          EOF
+
+          ls -lh -- "${out}"
+      - name: Upload iso assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare_release.outputs.tag_name }}
+        run: gh release upload "$TAG" iso-build/release-parts/* --clobber
+      - name: Rollback release
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare_release.outputs.tag_name }}
+        run: gh release delete "$TAG" --yes --cleanup-tag

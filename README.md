@@ -1,4 +1,4 @@
-# Rock 5B Live ISO (Debian trixie + KDE Plasma + Armbian kernel 6.18)
+# Rock 5B Live ISO (Debian trixie + KDE Plasma / Xfce + Armbian kernel)
 
 [![image_build](https://github.com/amazingfate/rk3588-live-iso/workflows/Build/badge.svg)](https://github.com/amazingfate/rk3588-live-iso/actions/workflows/build.yml)
 
@@ -9,25 +9,29 @@
 | 主板 | Radxa Rock 5B（RK3588，其他 rk3588 板子可改 DTB 后使用） |
 | 内核 | Armbian `current` 分支 **6.18.x**（`linux-image-current-rockchip64`，上游主线 + panthor） |
 | 用户空间 | **Debian trixie**（13） |
-| 桌面 | **KDE Plasma 6**（trixie 自带 Mesa，panthor 开箱可用，不再需要 panfork/rockchip-multimedia PPA） |
+| 桌面 | **KDE Plasma 6** 或 **Xfce 4.20**（trixie 自带 Mesa，panthor 开箱可用，不再需要 panfork/rockchip-multimedia PPA） |
 | 引导 | GRUB EFI（ISO 内 `grub-efi-arm64`）+ 设备树（DTB）自动加载 |
 | 安装器 | Calamares（`calamares-settings-debian`） |
 
-## 三个镜像变体（三个工作流）
+## 四个镜像变体（四个工作流）
 
 | 工作流 | 镜像 | 内核 | 固件 | 桌面 |
 | --- | --- | --- | --- | --- |
 | `.github/workflows/build.yml` | `lb-config-trixie.sh` | Armbian `current-rockchip64` = **6.18.x LTS** | `armbian-firmware`（含 Armbian 框架包） | KDE Plasma 6 |
 | `.github/workflows/build-edge.yml` | `lb-config-trixie-edge.sh` | Armbian `edge-rockchip64` = **7.x 主线**（当前 7.1.8，Armbian 已把 edge 指向 7.2，发布后自动变为 7.2.x） | 纯 Debian 固件（`firmware-realtek` / `firmware-misc-nonfree`） | KDE Plasma 6 完整版 + 中文输入法 + LibreOffice + Firefox |
 | `.github/workflows/build-current.yml` | `lb-config-trixie-current.sh` | Armbian `current-rockchip64` = **6.18.x LTS** | 纯 Debian 固件（同上） | 与变体2 相同（共用 `additional-packages.trixie-edge`） |
+| `.github/workflows/build-edge-xfce.yml` | `lb-config-trixie-edge-xfce.sh` | Armbian `edge-rockchip64` = **7.x 主线**（同变体2） | 纯 Debian 固件（同上） | **Xfce 4.20（lightdm / X11）** + 中文输入法 + LibreOffice(GTK) + Firefox |
 
-变体2 与变体3 **不包含任何 Armbian 框架组件**（无 `armbian-firmware`、无 `armbian-bsp-cli-*`、无 `armbian-config`），
+变体2、变体3、变体4 **不包含任何 Armbian 框架组件**（无 `armbian-firmware`、无 `armbian-bsp-cli-*`、无 `armbian-config`），
 Armbian 源仅用于提供内核（`linux-image/dtb/headers-{edge,current}-rockchip64`）。该源按 live-build 的约定写两份：
 `config/archives/live.list.chroot`（只在构建期用，chroot 阶段结束时会被 `lb chroot_archives chroot remove` 删掉）、
 `config/archives/live.list.binary`（**随镜像发布**，在 ISO 里是 `/etc/apt/sources.list.d/live.list`，
 签名密钥为 `/etc/apt/trusted.gpg.d/armbian.key.binary.gpg`）——所以 Live 系统、以及从它装到硬盘的系统
 都能直接 `sudo apt update && sudo apt install linux-image-{edge,current}-rockchip64` 升级内核，不用手改源。
-变体2/3 只差一个内核分支，用户空间完全一致。
+变体2/3 只差一个内核分支，用户空间完全一致；变体4 与变体2 **内核相同、桌面不同**
+（Xfce + lightdm/X11 取代 Plasma 6 + sddm/Wayland），因此用自己的一套文件
+（`lb-config-trixie-edge-xfce.sh`、`additional-packages.trixie-edge-xfce`、
+`customize-chroot-trixie-xfce.hook.chroot`）。
 
 > 注意：Armbian 源里目前**没有 7.2.8**：`edge` 分支已发布的是 7.1.8（源码包 `linux-7.1.8`），
 > 7.2.0 目前只给 Qualcomm sm8550 构建过。因此这里用 `edge-rockchip64` 取“最新主线”，
@@ -51,7 +55,10 @@ additional-packages.trixie              # 变体1 的包列表
 lb-config-trixie-edge.sh                # 变体2: edge 7.x 内核 + 纯 Debian 固件（无 Armbian 框架）
 lb-config-trixie-current.sh             # 变体3: current 6.18 LTS 内核 + 纯 Debian 固件（无 Armbian 框架）
 additional-packages.trixie-edge         # 变体2/3 共用包列表（KDE 完整版 + fcitx5 + LibreOffice + Firefox）
-customize-chroot-trixie.hook.chroot     # 三个变体共用：Calamares、locale、声卡命名、fcitx5
+lb-config-trixie-edge-xfce.sh           # 变体4: edge 7.x 内核 + 纯 Debian 固件 + Xfce（无 Armbian 框架）
+additional-packages.trixie-edge-xfce    # 变体4 的包列表（Xfce 4.20 + lightdm + fcitx5 + LibreOffice GTK + Firefox）
+customize-chroot-trixie.hook.chroot     # 变体1/2/3 共用：Calamares、locale、声卡命名、fcitx5（sddm 自动登录）
+customize-chroot-trixie-xfce.hook.chroot # 变体4 专用：同上，但启用 lightdm + X11 下的 fcitx5 环境变量
 10_linux                                # 安装到目标系统的 /etc/grub.d/10_linux（含 DTB 逻辑）
 networkmanager.yaml                     # netplan: 使用 NetworkManager 渲染
 grub-dtb.patch                          # live-build: Live 菜单加载 DTB
@@ -60,6 +67,7 @@ remove-raspi-firmware.patch
 .github/workflows/build.yml             # CI（变体1）
 .github/workflows/build-edge.yml        # CI（变体2）
 .github/workflows/build-current.yml     # CI（变体3）
+.github/workflows/build-edge-xfce.yml   # CI（变体4）
 ```
 
 ## 在本地构建
@@ -95,6 +103,16 @@ cp ../lb-config-trixie-edge.sh lb-config.sh
 cp ../additional-packages.trixie-edge additional-packages
 ```
 
+构建**变体4**（edge 7.x 内核 + Xfce）时换成：
+
+```sh
+cp ../lb-config-trixie-edge-xfce.sh lb-config.sh
+cp ../additional-packages.trixie-edge-xfce additional-packages
+cp ../customize-chroot-trixie-xfce.hook.chroot customize-chroot.hook.chroot
+```
+
+（变体4 必须用 Xfce 版的 hook：它启用 `lightdm` 并给 X11 会话导出 fcitx5 的环境变量。）
+
 ## 如何启动 Rock 5B
 
 ISO 本身**不含 Rockchip 引导头**（`idbloader.img`/`u-boot.itb`），它是通过 UEFI 启动的，所以需要板上已有一套 UEFI 固件：
@@ -120,7 +138,7 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
 
 | 用户 | 密码 | 说明 |
 | --- | --- | --- |
-| `user` | `live` | Live 用户，自动登录由 `live-config` 自带的 `0085-sddm` 组件处理（不额外定制） |
+| `user` | `live` | Live 用户，自动登录由 `live-config` 自带组件处理：KDE 镜像用 `0085-sddm`，Xfce 镜像用 `0100-lightdm`（都不额外定制） |
 | root | — | 通过 `sudo` 使用 |
 
 安装到磁盘时使用桌面上的 **Install System**（Calamares）。
@@ -135,8 +153,8 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
 | `edge-rockchip64` | 7.x | 最新主线，可能不稳定 |
 | `vendor-rk35xx` | 6.1 BSP | Rockchip 厂商内核（多媒体硬解支持最好，需配套 PPA/Mesa） |
 
-改 `lb-config-trixie.sh` 里的 `--linux-flavours` 即可，同时按需调整
-`customize-chroot-trixie.hook.chroot` 的 DTB 回退逻辑和 `additional-packages.trixie` 中的固件/Mesa 包。
+改 `lb-config-trixie*.sh` 里的 `--linux-flavours` 即可（四个变体各有一份配置脚本），同时按需调整
+对应 `customize-chroot-trixie*.hook.chroot` 的 DTB 回退逻辑和 `additional-packages.trixie*` 中的固件/Mesa 包。
 
 ## 定制要点
 
@@ -145,7 +163,10 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
   （Dolphin/Kate/Okular/Ark/Gwenview/KCalc/KDE Connect/Discover/print-manager）+ LibreOffice + GIMP + mpv + Firefox。
   变体2 有意**不含** KMail/Akonadi 等 PIM 组件（体积大、首次启动慢）：需要时在桌面里
   `sudo apt install kmail kontact` 即可，或直接把 `task-kde-desktop` 加进包列表。
-  想换成 GNOME/XFCE 就替换对应段落（`gnome` / `xfce4` + `gdm3` / `lightdm`）。
+  变体4 用 `additional-packages.trixie-edge-xfce`：`xfce4` + `xfce4-goodies`（面板插件、thunar、mousepad、
+  ristretto、xfce4-notifyd、xfce4-screenshooter 等）+ `lightdm`/`lightdm-gtk-greeter` + GTK 版集成
+  （`libreoffice-gtk3`、`network-manager-gnome`、`blueman`、`lxpolkit`、`xfce4-power-manager`）+ LibreOffice + GIMP + mpv + Firefox。
+  想换成 GNOME 就参照这两份列表替换桌面段落（`gnome` + `gdm3`）。
 * **固件**：只用 Armbian 的 `armbian-firmware`（已确认包含
   `arm/mali/arch10.8/mali_csffw.bin`、`rtw89/rtw8852b_fw-1.bin`、`rtl_bt/rtl8852bu_fw.bin`）。
   该包声明 `Provides/Conflicts: linux-firmware, firmware-realtek, firmware-ralink,
@@ -158,10 +179,15 @@ devicetree /live/dtb/rockchip/$devicetreename   # 找到就加载
   可在 Calamares 安装界面选择中文，或在 Live 里执行 `localectl set-locale zh_CN.UTF-8`。
   变体2（`additional-packages.trixie-edge`）还装有 **fcitx5 + 拼音**：hook 会执行 `im-config -n fcitx5`、
   写入 `/etc/environment.d/90-fcitx5.conf` 与 `/etc/xdg/autostart/fcitx5.desktop`，进入桌面后用 `Ctrl+Space` 切换中英文。
+  变体4 同样装 fcitx5，但会话是 X11，所以 `customize-chroot-trixie-xfce.hook.chroot` 还额外写了
+  `/etc/X11/Xsession.d/90-fcitx5`（导出 `XMODIFIERS`/`GTK_IM_MODULE`/`QT_IM_MODULE`），
+  因为 Xfce 不读 `environment.d`，Qt 程序在 X11 下也必须显式指定 `QT_IM_MODULE`。
 * **自动登录**：沿用 `live-config` 自带的 `0085-sddm` 组件——它在 Live 启动时把 `[Autologin]`
   写进 `/etc/sddm.conf`，只影响 Live 会话，不会带入安装后的系统。**不要**再往
   `/etc/sddm.conf.d/` 里塞自己的配置：`conf.d/*.conf` 优先级高于 `/etc/sddm.conf`，
   会覆盖掉它（`Session=` 名字不对时自动登录会静默失效，退化成登录界面）。
+  变体4 用 lightdm，对应的是 `0100-lightdm` 组件（把 `autologin-user=` 写进 `/etc/lightdm/lightdm.conf`），
+  同理不要在镜像里预置 greeter/session 配置，`xfce4-screensaver` 的锁屏由 `1200-xfce4-lockscreen` 组件在 Live 里关掉。
 * **音频设备名**：`90-naming-audios.rules` 给 HDMI0/HDMI1/HDMI-In/DP0/ES8316 起名。
 
 ## 下载与合并分卷

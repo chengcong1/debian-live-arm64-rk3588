@@ -1,0 +1,177 @@
+# ---------------------------------------------------------------------------
+# Packages for: Debian trixie + Xfce 4.20 + Armbian *edge* kernel (7.x)
+# Variant WITHOUT the Armbian framework: no armbian-firmware, no armbian-bsp-*,
+# no armbian-config. Firmware is Debian's, the kernel is Armbian's.
+# Used by build-edge-xfce.yml (edge / 7.x), see lb-config-trixie-edge-xfce.sh.
+#
+# Difference to additional-packages.trixie-edge (the KDE variants): same base,
+# same firmware, same kernel, but the desktop is Xfce on X11 with lightdm
+# instead of Plasma 6 on Wayland with sddm. Xfce has no Qt/KF6 stack, so the
+# LibreOffice/Xfce/GTK integration packages replace the KDE ones.
+# ---------------------------------------------------------------------------
+
+# --- live system base -------------------------------------------------------
+live-task-recommended
+user-setup
+systemd-timesyncd
+locales
+console-setup
+keyboard-configuration
+tzdata
+sudo
+openssh-server
+ca-certificates
+vim
+nano
+less
+man-db
+bash-completion
+curl
+wget
+git
+jq
+htop
+psmisc
+lsof
+rsync
+unzip
+
+# --- disks / filesystems / board tools --------------------------------------
+parted
+gdisk
+fdisk
+dosfstools
+e2fsprogs
+exfatprogs
+ntfs-3g
+btrfs-progs
+f2fs-tools
+xfsprogs
+mmc-utils
+u-boot-tools
+device-tree-compiler
+gparted
+ethtool
+i2c-tools
+rfkill
+iw
+wpasupplicant
+wireless-regdb
+network-manager
+net-tools
+pciutils
+usbutils
+hdparm
+smartmontools
+pv
+
+# --- firmware (Debian, no Armbian firmware) ---------------------------------
+#   firmware-misc-nonfree -> arm/mali/arch10.8/mali_csffw.bin   (panthor GPU)
+#   firmware-realtek      -> rtw89/rtw8852b_fw-1.bin            (RTL8852BE Wi-Fi)
+#                            rtl_bt/rtl8852bu_fw.bin            (Bluetooth)
+# live-build additionally installs every other firmware-* package that ships
+# /lib/firmware for arm64 (LB_FIRMWARE_CHROOT defaults to true), which is what
+# makes Wi-Fi/Bluetooth/GPU work out of the box on this image.
+firmware-realtek
+firmware-misc-nonfree
+
+# --- live installer ---------------------------------------------------------
+calamares-settings-debian
+grub-efi-arm64
+grub-efi-arm64-bin
+
+# --- Xfce 4.20: desktop core ------------------------------------------------
+# xfce4 = the core metapackage (thunar, xfce4-panel, xfce4-session, xfwm4,
+# xfdesktop4, xfce4-settings, xfce4-appfinder, ...); xfce4-goodies adds the
+# panel plugins plus mousepad/ristretto/xfce4-notifyd/xfce4-dict/xfburn.
+xfce4
+xfce4-goodies
+xfwm4
+xfdesktop4
+xfce4-session
+xfce4-panel
+xfce4-settings
+xfce4-appfinder
+xfce4-terminal
+thunar
+thunar-volman
+exo-utils
+xfconf
+mousepad
+ristretto
+xfce4-screenshooter
+xfce4-taskmanager
+xfce4-notifyd
+xfce4-power-manager
+xfce4-pulseaudio-plugin
+
+# --- Xfce session: display manager, screensaver, policykit ------------------
+# lightdm instead of sddm: live-config has a 0100-lightdm component that
+# writes the autologin into /etc/lightdm/lightdm.conf at boot, matching what
+# 0085-sddm does for the KDE images.
+lightdm
+lightdm-gtk-greeter
+lightdm-gtk-greeter-settings
+xfce4-screensaver
+xserver-xorg
+xinit
+dbus-x11
+udisks2
+upower
+accountsservice
+lxpolkit
+gnome-keyring
+libpam-gnome-keyring
+
+# --- network / bluetooth applets for the panel ------------------------------
+network-manager-gnome
+blueman
+bluez
+
+# --- office / internet / media ----------------------------------------------
+libreoffice-writer
+libreoffice-calc
+libreoffice-impress
+libreoffice-gtk3
+libreoffice-style-elementary
+firefox-esr
+mpv
+gimp
+evince
+galculator
+file-roller
+catfish
+pavucontrol
+system-config-printer
+
+# --- audio ------------------------------------------------------------------
+pipewire-audio
+pipewire-pulse
+wireplumber
+libspa-0.2-bluetooth
+
+# --- desktop integration ----------------------------------------------------
+xdg-desktop-portal-gtk
+xdg-user-dirs
+xdg-utils
+gvfs-backends
+gvfs-fuse
+mesa-utils
+
+# --- Chinese input method ---------------------------------------------------
+# fcitx5 on X11 needs the GTK/Qt immodule packages; the chroot hook exports
+# GTK_IM_MODULE/QT_IM_MODULE for the Xfce session (see
+# customize-chroot-trixie-xfce.hook.chroot).
+fcitx5
+fcitx5-chinese-addons
+fcitx5-frontend-gtk3
+fcitx5-frontend-gtk2
+fcitx5-frontend-qt6
+fcitx5-config-qt
+im-config
+
+# --- fonts ------------------------------------------------------------------
+fonts-dejavu
+fonts-noto-core
+fonts-noto-cjk
+fonts-noto-color-emoji
