@@ -129,20 +129,20 @@ blueman
 bluez
 
 # --- office / internet / media ----------------------------------------------
-libreoffice-writer
-libreoffice-calc
-libreoffice-impress
-libreoffice-gtk3
-libreoffice-style-elementary
-firefox-esr
-mpv
-gimp
-evince
-galculator
+# libreoffice-writer
+# libreoffice-calc
+# libreoffice-impress
+# libreoffice-gtk3
+# libreoffice-style-elementary
+# firefox-esr
+# mpv
+# gimp
+# evince
+# galculator
 file-roller
 catfish
 pavucontrol
-system-config-printer
+# system-config-printer
 
 # --- audio ------------------------------------------------------------------
 pipewire-audio
